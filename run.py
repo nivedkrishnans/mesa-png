@@ -17,7 +17,7 @@ f = open(os.path.join(create_output_dir() ,'ramp.png'), 'wb')
 s = []
 a = []
 print(type(a))
-bitdepth = 7
+bitdepth = 4
 for i in range(2**bitdepth):
     for j in range(2**bitdepth):
         for k in range(2**bitdepth):
@@ -26,11 +26,11 @@ for i in range(2**bitdepth):
                 s.append(j)
                 s.append(k)
                 s.append(l)
-        a.append(tuple(s))
+        a.append((s))
         s=[]
         print('row ', (j+1), ' completed')
 
 w = png.Writer(width = 4**bitdepth, height = 4**bitdepth, greyscale=False, alpha = True, bitdepth=bitdepth, )
-# print(a)
+print(a)
 w.write(f, a)
 f.close()
