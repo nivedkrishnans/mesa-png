@@ -11,7 +11,7 @@ output_dir = os.path.join(current_dir,'output', str(datetime.now()))
 
 input_dir = os.path.join(current_dir,'input')
 
-input_file = os.path.join(input_dir, 'test_big.sqlite3')
+input_file = os.path.join(input_dir, 'test9.sqlite3')
 
 engine = create_engine('sqlite:///' + input_file, echo=False)
 conn = engine.connect()
@@ -22,9 +22,13 @@ tables = meta.tables
 table_names = tables.keys()
 grid_table_names = [table for table in table_names if 'Patch' in table]
 
-step = 11
-a_table = tables[grid_table_names[step]]
 
+
+def create_output_dir():
+        condition = not os.path.exists(output_dir)
+        if condition:
+            os.makedirs(output_dir)
+        return output_dir
 
 
 
@@ -35,7 +39,7 @@ a_table = tables[grid_table_names[step]]
 # bitdepth = 8
 # channels = 3 #R,G,B
 
-def export_png_grid(table, width, height, title='output', pixel_size=16, bitdepth=8, alpha=False):
+def export_png_grid(table, width, height, title='output', pixel_size=16, bitdepth=8, alpha=True):
     print('Started rendering image for table ', title)
     #Takes a table from the database, and exports it into a png
     #width and height are that of the model itself
@@ -67,7 +71,9 @@ def export_png_grid(table, width, height, title='output', pixel_size=16, bitdept
     #The table here has 4 columns - id, x_coordinate, y_coordinate, energy (all are integers)
     for patch in all_patches:
         #Root condition for changing defaults (default values are rgb(0,0,0), i.e. black, everywhere)
-        if patch[3]>5:
+        energy = patch[3]
+        
+        if energy>5:
             #Nested for loops enables scaling a patch to multiple pixels as per 'pixel_size'
             for i in range(pixel_size):
                 for j in range(pixel_size):
@@ -78,20 +84,16 @@ def export_png_grid(table, width, height, title='output', pixel_size=16, bitdept
                         #Also, depending on presence of an alpha channel, the length can vary
                         x_pos = pixel_size*channels*patch[1]
                         y_pos = pixel_size*patch[2]
-                        this_grid[i+y_pos][j*channels + x_pos + 0] = 255
-                        this_grid[i+y_pos][j*channels + x_pos + 1] = 0 
-                        this_grid[i+y_pos][j*channels + x_pos + 2] = 0
-                        #this_grid[i+y_pos][j*channels + x_pos + 3] = 255  #For alpha channel if used
+                        color = patch_color(energy)
+                        this_grid[i+y_pos][j*channels + x_pos + 0] = color[0]
+                        this_grid[i+y_pos][j*channels + x_pos + 1] = color[1] 
+                        this_grid[i+y_pos][j*channels + x_pos + 2] = color[2]
+                        if alpha:
+                            this_grid[i+y_pos][j*channels + x_pos + 3] = color[3]
                     except Exception as e:
                         print(e, patch)
 
-    def create_output_dir():
-        condition = not os.path.exists(output_dir)
-        if condition:
-            os.makedirs(output_dir)
-        return output_dir
-
-
+    
     w = png.Writer(width = pixel_size*width, height = pixel_size*height, greyscale=False, alpha = alpha, bitdepth=bitdepth, )
     f = open(os.path.join(create_output_dir() , title + '.png'), 'wb')
 
@@ -102,17 +104,41 @@ def export_png_grid(table, width, height, title='output', pixel_size=16, bitdept
     print('Time taken to render ', title, (final_time - initial_time), ' for total pixels ', height*width*(pixel_size**2))
 
 
+def patch_color(energy,default=15, extreme=40,alpha=False):
+    #This function returns the color corresponding to the value (energy)
+    #of a property of a patch, i.e., a grid box
+    normal_color = (255,190,0,255)
+    fractional_energy = energy/default
+    if fractional_energy < 0:
+        color =  (0,0,0,255)
+    elif 0 <= fractional_energy <= 1:
+        opacity = int(fractional_energy*255)
+        color = (255,190,0,opacity)
+    else:
+        if extreme == default:
+            color = (255,0,0,255)
+        extra = (energy - default)/(extreme - default)
+        if extra > 1 :
+            color = (0,0,0,255)
+        elif extra > 0:
+            color = (int(255*(1-extra)),0,0,255)
+        else: 
+            color = (0,0,255,255)
+
+    return color
+    
 
 
 
 
 
-
-for k in range(10):
+for k in range(len(grid_table_names)):
     a_table = tables[grid_table_names[k]]
-    export_png_grid(a_table, 1000, 1000 ,grid_table_names[k], pixel_size=1)
+    export_png_grid(a_table, 20, 20 ,grid_table_names[k], pixel_size=16)
 
-
+#a_table = tables[grid_table_names[29]]
+#export_png_grid(a_table, 10, 10 ,grid_table_names[29], pixel_size=16)
 final_time = datetime.now()
 
 print('Total time for whole program ', (final_time - initial_time) )
+
